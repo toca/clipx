@@ -12,6 +12,7 @@ type (
 	HDROP = uintptr
 	HICON = uintptr
 	HINSTANCE = uintptr
+	HHOOK = uintptr
 	HWND    = uintptr
 	LONG     = int32
 	LPARAM = uintptr
@@ -31,11 +32,20 @@ const (
 	TRUE = 1
 )
 
+// create window
+const CW_USERDEFAULT = 0x80000000
+
 // clipboard format
 const (
 	CF_UNICODETEXT = 13
 	CF_HDROP       = 15
 )
+
+// windows hook
+const (
+	WH_KEYBOARD = 13
+)
+
 
 const HWND_MESSAGE HWND = ^HWND(2) // -3
 

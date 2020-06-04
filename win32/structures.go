@@ -30,3 +30,25 @@ type MSG struct {
     Point POINT
     Private DWORD
 }
+
+type STROKE int32
+
+const (
+	KEY_DOWN STROKE = iota
+	KEY_UP
+	SYSKEY_DOWN
+	SYSKEY_UP
+	UNKNOWN
+)
+
+/// <summary>
+/// キーボードの状態の構造体
+/// </summary>
+// type KEY_STATE struct {
+// 	Stroke STOROKE
+// 	Key KEY
+// 	ScanCode uint32
+// 	public uint Flags;
+// 	public uint Time;
+// 	public System.IntPtr ExtraInfo;
+// }

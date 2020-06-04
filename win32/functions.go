@@ -41,11 +41,19 @@ var (
 
 	DragQueryFileW                = findProc(shell32Dll, "DragQueryFileW")
 
-	GlobalLock    = findProc(kernel32Dll, "GlobalLock")	
-	GlobalUnlock  = findProc(kernel32Dll, "GlobalUnlock")
+	SetWindowsHookExW      = findProc(user32Dll, "SetWindowsHookExW")
+	UnhookWindowsHookEx    = findProc(user32Dll, "UnhookWindowsHookEx")
+	CallNextHookEx         = findProc(user32Dll, "CallNextHookEx")
+
+	GetCurrentThreadId     = findProc(kernel32Dll, "GetCurrentThreadId")
+
+	GlobalLock    			= findProc(kernel32Dll, "GlobalLock")	
+	GlobalUnlock  			= findProc(kernel32Dll, "GlobalUnlock")
+	GetModuleHandleW        = findProc(kernel32Dll, "GetModuleHandleW")
 
 	GetMessageW           = findProc(user32Dll, "GetMessageW")
 	TranslateMessage      = findProc(user32Dll, "TranslateMessage")
 	DispatchMessageW      = findProc(user32Dll, "DispatchMessageW")
 	SendMessageW          = findProc(user32Dll, "SendMessageW")
+	
 )
