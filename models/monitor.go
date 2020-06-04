@@ -31,8 +31,8 @@ func (this *WindowsMonitor) Monitoring() error {
 	windowClass := win32.WNDCLASSEXW{ ClassName: className }
 	windowClass.WndProc = syscall.NewCallback(this.windowProc)
 	windowClass.Size = win32.UINT(unsafe.Sizeof(windowClass))
-	_, lastErr, err := win32.RegisterClassExW.Call(uintptr(unsafe.Pointer(&windowClass)))
-	if lastErr != 0 {
+	res, lastErr, err := win32.RegisterClassExW.Call(uintptr(unsafe.Pointer(&windowClass)))
+	if lastErr != 0 || res == win32.FALSE {
 		return err
 	}
 
@@ -44,8 +44,8 @@ func (this *WindowsMonitor) Monitoring() error {
 	this.window = window
 
 	// register clipboard listener
-	res, lastErr, err := win32.AddClipboardFormatListener.Call(this.window)
-	if lastErr != 0 || res == win32.FALSE {
+	addRes, lastErr, err := win32.AddClipboardFormatListener.Call(this.window)
+	if lastErr != 0 || addRes == win32.FALSE {
 		return err
 	}
 	defer win32.RemoveClipboardFormatListener.Call(this.window)
@@ -71,11 +71,11 @@ func (this WindowsMonitor) windowProc(window win32.HWND, message win32.UINT, wPa
 	if message == win32.WM_CLIPBOARDUPDATE {
 		this.written <- true
 	}
-	_, lastErr, err := win32.DefWindowProcW.Call(window, uintptr(message), wParam, lParam)
+	res, lastErr, err := win32.DefWindowProcW.Call(window, uintptr(message), wParam, lParam)
 	if lastErr != 0 {
 		fmt.Printf("WindowsMonitor.windowProc failed: %v\n", err)
 	}
-	return 0
+	return res
 }
 
 func (this *WindowsMonitor) Stop() error {

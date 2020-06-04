@@ -22,15 +22,16 @@ func main(){
 	go func() {
 		<-sigChan
 		err := monitor.Stop()
-		fmt.Println("interrupted!!")
+		fmt.Println("[interrupted]")
 		if err != nil {
 			fmt.Printf("Monitor.Stop failed: %v\n", err)
 		}
 	}()
 
-	clipboard := models.NewClipboard()
+	cb := models.NewClipboard()
 	monitorErr := make(chan error, 1)
 	go func() {
+		fmt.Println("[begin monitoring]")
 		err := monitor.Monitoring()
 		monitorErr <- err
 	}()
@@ -38,18 +39,23 @@ func main(){
 		for {
 			select{
 			case <- written:
-				fmt.Println("written")
-				if res, err := clipboard.IsStringable(); err == nil{
-					fmt.Printf("IsStringable:%v\n", res)
+				fmt.Println("[written]")
+				stringable, err := cb.IsStringable();
+				if err != nil {
+					fmt.Println(err)
+					continue
 				}
-				// str, err := clipboard.ReadAll()
-				// if err == nil {
-				// 	fmt.Println(str)
-				// } else {
-				// 	fmt.Println(err)
-				// }
+				if !stringable {
+					continue
+				}
+				str, err := cb.GetAsString()
+				if err != nil {
+					fmt.Println(err)
+				} else {
+					fmt.Println(str)
+				}
 			case <- quit:
-				fmt.Println("quit")
+				fmt.Println("[quit]")
 				break loop
 			case err := <- monitorErr:
 				fmt.Printf("MonitoringError: %v\n", err)
@@ -60,7 +66,7 @@ func main(){
 	// queue
 	// ui
 	// paste
-	fmt.Println("finish!")
+	fmt.Println("[process finished]")
 	// str, err := clipboard.ReadAll()
 	// if err == nil {
 	// 	fmt.Println(str)
