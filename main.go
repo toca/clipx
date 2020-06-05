@@ -3,6 +3,7 @@ package main
 import (
 	"clipx/models"
 	"fmt"
+	"time"
 )
 
 // clipboard
@@ -15,7 +16,7 @@ func main() {
 
 	// globak keyboard hook
 	hookQuit := make(chan bool, 1)
-	hooked := make(chan bool, 64)
+	hooked := make(chan models.KeyInfo, 64)
 	hookErr := make(chan error, 1)
 	hook := models.NewKeyHooker(hooked, hookQuit)
 	// start hooking
@@ -60,8 +61,8 @@ loop:
 		select {
 		case <-written:
 			onClipboardWritten()
-		case <-hooked:
-			onHooked()
+		case keyInfo := <-hooked:
+			onHooked(&keyInfo)
 		case <-cbQuit:
 			<-hookQuit
 			fmt.Println("[quit]")
@@ -100,6 +101,23 @@ func onClipboardWritten() {
 	list.Add(str)
 }
 
-func onHooked() {
-	fmt.Println("HOOKED!")
+const VK_CTRL = 17
+const VK_LCONTROL = 162
+const VK_RCONTROL = 163
+const ThresholdMilli = 600
+
+var lastKeyDown = time.Now()
+
+func onHooked(keyInfo *models.KeyInfo) {
+	if keyInfo.Action != models.KeyUp {
+		return
+	}
+	if keyInfo.VirtualKeyCode != VK_CTRL && keyInfo.VirtualKeyCode != VK_LCONTROL && keyInfo.VirtualKeyCode != VK_RCONTROL {
+		return
+	}
+	now := time.Now()
+	if now.Sub(lastKeyDown).Milliseconds() <= ThresholdMilli {
+		fmt.Printf("to be selection mode\n")
+	}
+	lastKeyDown = now
 }

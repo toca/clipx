@@ -13,15 +13,30 @@ type KeyHooker interface {
 }
 
 type WindowsKeyHooker struct {
-	hooked   chan bool
+	hooked   chan KeyInfo
 	quit     chan bool
 	neighbor win32.HHOOK
 	window   win32.HWND
 }
 
-func NewKeyHooker(hooked chan bool, quit chan bool) KeyHooker {
+func NewKeyHooker(hooked chan KeyInfo, quit chan bool) KeyHooker {
 	return &WindowsKeyHooker{hooked, quit, 0, 0}
 }
+
+// generic keyboard event info
+type KeyAction uint
+
+const KeyUp KeyAction = 1
+const KeyDown KeyAction = 0
+
+type KeyInfo struct {
+	Action          KeyAction
+	VirtualKeyCode  uint32
+	ScanCode        uint32
+	ModifierKeyFlag uint32
+}
+
+// end key info
 
 func (this *WindowsKeyHooker) Start() error {
 	//register window
@@ -52,7 +67,7 @@ func (this *WindowsKeyHooker) Start() error {
 	}
 
 	// set hook
-	this.neighbor, lastErr, err = win32.SetWindowsHookExW.Call(win32.WH_KEYBOARD, syscall.NewCallback(this.hookProc), hinstance, uintptr(0))
+	this.neighbor, lastErr, err = win32.SetWindowsHookExW.Call(win32.WH_KEYBOARD_LL, syscall.NewCallback(this.hookProc), hinstance, uintptr(0))
 	if lastErr != 0 {
 		return err
 	}
@@ -79,7 +94,7 @@ func (this *WindowsKeyHooker) Stop() error {
 		return err
 	}
 
-	_, lastErr, err = win32.UnhookWindowsHookEx.Call(win32.WH_KEYBOARD)
+	_, lastErr, err = win32.UnhookWindowsHookEx.Call(win32.WH_KEYBOARD_LL)
 	this.quit <- true
 	if lastErr != 0 {
 		return err
@@ -89,12 +104,21 @@ func (this *WindowsKeyHooker) Stop() error {
 }
 
 func (this *WindowsKeyHooker) hookProc(code int32, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
-	_, lastErr, err := win32.CallNextHookEx.Call(this.neighbor, uintptr(code), wParam, lParam)
+	result, lastErr, err := win32.CallNextHookEx.Call(this.neighbor, uintptr(code), wParam, lParam)
 	if lastErr != 0 {
 		fmt.Println(err)
 	}
-	this.hooked <- true
-	return 0
+	switch wParam {
+	case win32.WM_KEYUP:
+		kbdInfo := (*win32.KBDLLHOOKSTRUCT)(unsafe.Pointer(lParam))
+		keyInfo := KeyInfo{Action: KeyUp, VirtualKeyCode: kbdInfo.VkCode, ScanCode: kbdInfo.ScanCode, ModifierKeyFlag: 0} // TODO impl modifirekey
+		this.hooked <- keyInfo
+	case win32.WM_KEYDOWN:
+		kbdInfo := (*win32.KBDLLHOOKSTRUCT)(unsafe.Pointer(lParam))
+		keyInfo := KeyInfo{Action: KeyDown, VirtualKeyCode: kbdInfo.VkCode, ScanCode: kbdInfo.ScanCode, ModifierKeyFlag: 0} // TODO impl modifirekey
+		this.hooked <- keyInfo
+	}
+	return result
 }
 
 func (this *WindowsKeyHooker) windowProc(window win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
