@@ -3,6 +3,7 @@ package main
 import (
 	"clipx/models"
 	"fmt"
+	"log"
 	"time"
 )
 
@@ -13,12 +14,14 @@ var cb = models.NewClipboard()
 var list = models.NewList(4)
 
 func main() {
+	log.Println("std err")
+	// the view
+	// var view = views.NewView(list)
 
 	// globak keyboard hook
-	hookQuit := make(chan bool, 1)
 	hooked := make(chan models.KeyInfo, 64)
 	hookErr := make(chan error, 1)
-	hook := models.NewKeyHooker(hooked, hookQuit)
+	hook := models.NewKeyHooker(hooked)
 	// start hooking
 	go func() {
 		err := hook.Start()
@@ -26,12 +29,12 @@ func main() {
 			hookErr <- err
 		}
 	}()
+	defer hook.Stop()
 
 	// monitoring clipboard
 	written := make(chan bool, 16)
-	cbQuit := make(chan bool, 1)
 	monitorErr := make(chan error, 1)
-	monitor := models.NewMonitor(written, cbQuit)
+	monitor := models.NewMonitor(written)
 	// start monitoring
 	go func() {
 		fmt.Println("[begin monitoring]")
@@ -40,6 +43,7 @@ func main() {
 			monitorErr <- err
 		}
 	}()
+	defer monitor.Stop()
 
 	// stop
 	// signals
@@ -53,20 +57,29 @@ func main() {
 		if err != nil {
 			fmt.Printf("Hooker.Stop failed: %v\n", err)
 		}
+		// view.Close()
 	})
 
+	// view
+	// go func() {
+	// 	view.Show()
+	// }()
 	// main loop
 loop:
 	for {
 		select {
-		case <-written:
-			onClipboardWritten()
-		case keyInfo := <-hooked:
-			onHooked(&keyInfo)
-		case <-cbQuit:
-			<-hookQuit
-			fmt.Println("[quit]")
-			break loop
+		case _, ok := <-written:
+			if ok {
+				onClipboardWritten()
+			} else {
+				break loop
+			}
+		case keyInfo, ok := <-hooked:
+			if ok {
+				onHooked(&keyInfo)
+			} else {
+				break loop
+			}
 		case err := <-monitorErr:
 			fmt.Printf("Monitoring Error: %v\n", err)
 		case err := <-hookErr:
@@ -74,12 +87,16 @@ loop:
 		}
 	}
 
-	// key hook
-	// buffer
-	// ui
+	// wait channel close
+	<-written
+	<-hooked
+	// change quit -> close
 	// paste
+	// save & load file
 	list.Dump()
 	fmt.Println("[process finished]")
+	// todo defer
+
 }
 
 func onClipboardWritten() {
@@ -117,7 +134,7 @@ func onHooked(keyInfo *models.KeyInfo) {
 	}
 	now := time.Now()
 	if now.Sub(lastKeyDown).Milliseconds() <= ThresholdMilli {
-		fmt.Printf("to be selection mode\n")
+		fmt.Printf("to be selection mode")
 	}
 	lastKeyDown = now
 }

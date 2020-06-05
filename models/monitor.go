@@ -1,10 +1,11 @@
 package models
 
 import (
+	"clipx/win32"
 	"fmt"
+	"sync"
 	"syscall"
 	"unsafe"
-	"clipx/win32"
 )
 
 type Monitor interface {
@@ -12,23 +13,21 @@ type Monitor interface {
 	Stop() error
 }
 
-func NewMonitor(written chan bool, quit chan bool) Monitor {
-	return &WindowsMonitor{ written, quit, 0 }
+func NewMonitor(written chan bool) Monitor {
+	once := sync.Once{}
+	return &WindowsMonitor{written, 0, once}
 }
 
-
-
-
-type WindowsMonitor struct{
+type WindowsMonitor struct {
 	written chan bool
-	quit chan bool
-	window win32.HWND
+	window  win32.HWND
+	once    sync.Once
 }
 
 func (this *WindowsMonitor) Monitoring() error {
 	//register window
 	className := syscall.StringToUTF16Ptr("clipx")
-	windowClass := win32.WNDCLASSEXW{ ClassName: className }
+	windowClass := win32.WNDCLASSEXW{ClassName: className}
 	windowClass.WndProc = syscall.NewCallback(this.windowProc)
 	windowClass.Size = win32.UINT(unsafe.Sizeof(windowClass))
 	res, lastErr, err := win32.RegisterClassExW.Call(uintptr(unsafe.Pointer(&windowClass)))
@@ -53,7 +52,7 @@ func (this *WindowsMonitor) Monitoring() error {
 
 	// message loop
 	msg := win32.MSG{}
-    for {
+	for {
 		res, lastErr, err := win32.GetMessageW.Call(uintptr(unsafe.Pointer(&msg)), this.window, 0, 0)
 		if res == 0 {
 			break
@@ -62,7 +61,7 @@ func (this *WindowsMonitor) Monitoring() error {
 			return err
 		}
 		win32.TranslateMessage.Call(uintptr(unsafe.Pointer(&msg)))
-        win32.DispatchMessageW.Call(uintptr(unsafe.Pointer(&msg)))
+		win32.DispatchMessageW.Call(uintptr(unsafe.Pointer(&msg)))
 	}
 	return nil
 }
@@ -79,11 +78,12 @@ func (this WindowsMonitor) windowProc(window win32.HWND, message win32.UINT, wPa
 }
 
 func (this *WindowsMonitor) Stop() error {
+	this.once.Do(func() {
+		close(this.written)
+	})
 	_, lastErr, err := win32.SendMessageW.Call(uintptr(this.window), uintptr(win32.WM_QUIT), uintptr(0), uintptr(0))
 	if lastErr != 0 {
 		return err
 	}
-	this.quit <- true
 	return nil
 }
-

@@ -3,6 +3,7 @@ package models
 import (
 	"clipx/win32"
 	"fmt"
+	"sync"
 	"syscall"
 	"unsafe"
 )
@@ -14,13 +15,13 @@ type KeyHooker interface {
 
 type WindowsKeyHooker struct {
 	hooked   chan KeyInfo
-	quit     chan bool
 	neighbor win32.HHOOK
 	window   win32.HWND
+	once     sync.Once
 }
 
-func NewKeyHooker(hooked chan KeyInfo, quit chan bool) KeyHooker {
-	return &WindowsKeyHooker{hooked, quit, 0, 0}
+func NewKeyHooker(hooked chan KeyInfo) KeyHooker {
+	return &WindowsKeyHooker{hooked, 0, 0, sync.Once{}}
 }
 
 // generic keyboard event info
@@ -89,13 +90,15 @@ func (this *WindowsKeyHooker) Start() error {
 }
 
 func (this *WindowsKeyHooker) Stop() error {
+	this.once.Do(func() {
+		close(this.hooked)
+	})
 	_, lastErr, err := win32.SendMessageW.Call(uintptr(this.window), uintptr(win32.WM_QUIT), uintptr(0), uintptr(0))
 	if lastErr != 0 {
 		return err
 	}
 
 	_, lastErr, err = win32.UnhookWindowsHookEx.Call(win32.WH_KEYBOARD_LL)
-	this.quit <- true
 	if lastErr != 0 {
 		return err
 	} else {
