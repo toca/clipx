@@ -2,8 +2,9 @@ package main
 
 import (
 	"clipx/models"
-	"fmt"
+	"clipx/views"
 	"log"
+	"sync"
 	"time"
 )
 
@@ -11,17 +12,30 @@ import (
 var cb = models.NewClipboard()
 
 // history buffer
-var list = models.NewList(4)
+var list = models.NewList(16)
+
+// globak keyboard hook
+var hooked = make(chan models.KeyInfo, 64)
+var hookErr = make(chan error, 1)
+var hook = models.NewKeyHooker(hooked)
+
+// monitoring clipboard
+var written = make(chan bool, 16)
+var monitorErr = make(chan error, 1)
+var monitor = models.NewMonitor(written)
+
+// view
+var viewClosed = make(chan struct{})
+var view = views.NewView(list, viewClosed)
+
+var once sync.Once
 
 func main() {
-	log.Println("std err")
-	// the view
-	// var view = views.NewView(list)
+	// show
+	go func() {
+		view.Show()
+	}()
 
-	// globak keyboard hook
-	hooked := make(chan models.KeyInfo, 64)
-	hookErr := make(chan error, 1)
-	hook := models.NewKeyHooker(hooked)
 	// start hooking
 	go func() {
 		err := hook.Start()
@@ -29,41 +43,27 @@ func main() {
 			hookErr <- err
 		}
 	}()
-	defer hook.Stop()
 
-	// monitoring clipboard
-	written := make(chan bool, 16)
-	monitorErr := make(chan error, 1)
-	monitor := models.NewMonitor(written)
 	// start monitoring
 	go func() {
-		fmt.Println("[begin monitoring]")
+		log.Println("[begin monitoring]")
 		err := monitor.Monitoring()
 		if err != nil {
 			monitorErr <- err
 		}
 	}()
-	defer monitor.Stop()
 
-	// stop
-	// signals
+	// cleanup just in case
+	defer func() {
+		cleanup()
+	}()
+
+	// stop by signal
 	OnInterrupted(func() {
-		fmt.Println("[interrupted]")
-		err := monitor.Stop()
-		if err != nil {
-			fmt.Printf("Monitor.Stop failed: %v\n", err)
-		}
-		err = hook.Stop()
-		if err != nil {
-			fmt.Printf("Hooker.Stop failed: %v\n", err)
-		}
-		// view.Close()
+		log.Println("[interrupted]")
+		cleanup()
 	})
 
-	// view
-	// go func() {
-	// 	view.Show()
-	// }()
 	// main loop
 loop:
 	for {
@@ -80,30 +80,47 @@ loop:
 			} else {
 				break loop
 			}
+		case <-viewClosed:
+			cleanup()
+			break loop
 		case err := <-monitorErr:
-			fmt.Printf("Monitoring Error: %v\n", err)
+			log.Printf("Monitoring Error: %v\n", err)
 		case err := <-hookErr:
-			fmt.Printf("Hooker Error: %v\n", err)
+			log.Printf("Hooker Error: %v\n", err)
 		}
-	}
+	} // end main loop
 
-	// wait channel close
+	// wait channel closed
 	<-written
 	<-hooked
-	// change quit -> close
+
+	// TODO
 	// paste
 	// save & load file
+	// help
+	// max lines
 	list.Dump()
-	fmt.Println("[process finished]")
-	// todo defer
+	log.Println("[process finished]")
+}
 
+func cleanup() {
+	once.Do(func() {
+		err := monitor.Stop()
+		if err != nil {
+			log.Printf("Monitor.Stop failed: %v\n", err)
+		}
+		err = hook.Stop()
+		if err != nil {
+			log.Printf("Hooker.Stop failed: %v\n", err)
+		}
+	})
 }
 
 func onClipboardWritten() {
-	fmt.Printf("[written]")
+	log.Printf("[written]")
 	stringable, err := cb.IsStringable()
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return
 	}
 	if !stringable {
@@ -111,9 +128,9 @@ func onClipboardWritten() {
 	}
 	str, err := cb.GetAsString()
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 	} else {
-		fmt.Println(str)
+		log.Println(str)
 	}
 	list.Add(str)
 }
@@ -134,7 +151,7 @@ func onHooked(keyInfo *models.KeyInfo) {
 	}
 	now := time.Now()
 	if now.Sub(lastKeyDown).Milliseconds() <= ThresholdMilli {
-		fmt.Printf("to be selection mode")
+		log.Printf("to be selection mode")
 	}
 	lastKeyDown = now
 }

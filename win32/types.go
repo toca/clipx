@@ -49,6 +49,8 @@ const HWND_MESSAGE HWND = ^HWND(2) // -3
 
 // WM_XXXX window message
 const (
+	WM_NULL            = 0x0000
+	WM_DESTROY         = 0x0002
 	WM_CLIPBOARDUPDATE = 0x0000031D
 	// HWND_MESSAGE       = ^uint32(2)
 	WM_QUIT       = 0x00000012

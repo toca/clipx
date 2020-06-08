@@ -1,7 +1,7 @@
 package models
 
 import (
-	"fmt"
+	"log"
 )
 
 type List struct {
@@ -18,17 +18,20 @@ func NewList(size uint) *List {
 	return &List{list, size, uint(cur), notify}
 }
 
+func (this *List) Size() uint {
+	return uint(len(this.list))
+}
 func (this *List) Add(str string) {
 	if len(str) == 0 {
 		return
 	}
 	this.list[(this.cur+1)%this.size] = str
 	this.cur++
-	// this.notify <- true
+	this.notify <- true
 }
 
-func (this *List) Get(i int) *string {
-	return &this.list[i]
+func (this *List) Get(i uint) *string {
+	return &this.list[(this.cur-i)%this.size]
 }
 
 func (this *List) GetNotify() chan bool {
@@ -37,6 +40,6 @@ func (this *List) GetNotify() chan bool {
 
 func (this *List) Dump() {
 	for i := range this.list {
-		fmt.Printf("%2d:[%s]\n", i, this.list[i])
+		log.Printf("%2d:[%s]\n", i, this.list[i])
 	}
 }

@@ -2,8 +2,7 @@ package models
 
 import (
 	"clipx/win32"
-	"fmt"
-	"sync"
+	"log"
 	"syscall"
 	"unsafe"
 )
@@ -14,14 +13,13 @@ type Monitor interface {
 }
 
 func NewMonitor(written chan bool) Monitor {
-	once := sync.Once{}
-	return &WindowsMonitor{written, 0, once}
+	return &WindowsMonitor{written, 0, make(chan bool)}
 }
 
 type WindowsMonitor struct {
 	written chan bool
 	window  win32.HWND
-	once    sync.Once
+	close   chan bool
 }
 
 func (this *WindowsMonitor) Monitoring() error {
@@ -63,27 +61,32 @@ func (this *WindowsMonitor) Monitoring() error {
 		win32.TranslateMessage.Call(uintptr(unsafe.Pointer(&msg)))
 		win32.DispatchMessageW.Call(uintptr(unsafe.Pointer(&msg)))
 	}
+	close(this.close)
 	return nil
 }
 
 func (this WindowsMonitor) windowProc(window win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
-	if message == win32.WM_CLIPBOARDUPDATE {
-		this.written <- true
-	}
 	res, lastErr, err := win32.DefWindowProcW.Call(window, uintptr(message), wParam, lParam)
 	if lastErr != 0 {
-		fmt.Printf("WindowsMonitor.windowProc failed: %v\n", err)
+		log.Printf("WindowsMonitor.windowProc failed: %v\n", err)
 	}
+
+	switch message {
+	case win32.WM_CLIPBOARDUPDATE:
+		this.written <- true
+	case win32.WM_DESTROY:
+		win32.PostQuitMessage.Call(0)
+	}
+
 	return res
 }
 
 func (this *WindowsMonitor) Stop() error {
-	this.once.Do(func() {
-		close(this.written)
-	})
-	_, lastErr, err := win32.SendMessageW.Call(uintptr(this.window), uintptr(win32.WM_QUIT), uintptr(0), uintptr(0))
+	close(this.written)
+	_, lastErr, err := win32.SendMessageW.Call(uintptr(this.window), uintptr(win32.WM_DESTROY), uintptr(0), uintptr(0))
 	if lastErr != 0 {
 		return err
 	}
+	<-this.close
 	return nil
 }
