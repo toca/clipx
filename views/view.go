@@ -1,25 +1,27 @@
 package views
 
 import (
+	"clipx/controllers"
 	"clipx/models"
 	"fmt"
-	"sync"
+	"log"
 
 	"github.com/gdamore/tcell"
+	"github.com/mattn/go-runewidth"
 )
 
 type View struct {
-	list     *models.List
-	listSize uint
-	screen   tcell.Screen
-	once     sync.Once
-	notify   chan bool
-	close    chan struct{}
-	cursor   uint
-	rerender chan struct{}
+	ctrl         controllers.Controller
+	list         models.List
+	listSize     uint
+	listNotify   chan bool
+	cursor       models.Cursor
+	cursorNotify chan bool
+	screen       tcell.Screen
+	close        chan struct{}
 }
 
-func NewView(list *models.List, close chan struct{}) *View {
+func NewView(ctrl controllers.Controller, list models.List, cursor models.Cursor, close chan struct{}) *View {
 	screen, err := tcell.NewScreen()
 	if err != nil {
 		panic(err)
@@ -27,7 +29,7 @@ func NewView(list *models.List, close chan struct{}) *View {
 	if err = screen.Init(); err != nil {
 		panic(err)
 	}
-	return &View{list, list.Size(), screen, sync.Once{}, list.GetNotify(), close, 0, make(chan struct{})}
+	return &View{ctrl, list, list.Size(), list.GetNotify(), cursor, cursor.GetNotify(), screen, close}
 }
 
 // TODO
@@ -45,7 +47,7 @@ func (this *View) Show() {
 			case *tcell.EventKey:
 				terminate := this.onKeyEvent(e)
 				if terminate {
-					break
+					return
 				}
 			}
 		}
@@ -54,17 +56,24 @@ func (this *View) Show() {
 loop:
 	for {
 		select {
-		case _, ok := <-this.notify:
+		case _, ok := <-this.listNotify:
 			if !ok {
 				break loop
 			} else {
 				this.render()
 				break
 			}
-		case <-this.rerender:
-			this.render()
+		case _, ok := <-this.cursorNotify:
+			if !ok {
+				break loop
+			} else {
+				this.render()
+				break
+			}
 		case <-this.close:
+			log.Printf("View.show: closed")
 			this.screen.Fini()
+			log.Printf("View.show: endloop")
 			break loop
 		}
 	}
@@ -73,26 +82,28 @@ loop:
 func (this *View) render() {
 	this.screen.Clear()
 	// title
-	for i, c := range "-- [clipx] clipboard extention for windows --" {
+	for i, c := range "-- [clipx] clipboard extention --" {
 		this.screen.SetContent(i, 0, c, nil, tcell.StyleDefault)
 	}
 
 	indexFormat := "%x: "
-	// 1: first contents
-	// 2: second contents
+	// 0: first contents
+	// 1: second contents
 	// ...
 	// f: last contents
-	for row := uint(1); row < this.listSize; row++ {
+	for i := uint(0); i < this.listSize; i++ {
+		row := int(i) + 1 // title
 		style := tcell.StyleDefault
-		if this.cursor%(this.listSize-1) == row-1 {
+		if this.cursor.IsSelected(i) {
 			style = tcell.StyleDefault.Reverse(true)
 		}
-		index := fmt.Sprintf(indexFormat, row)
-		colIndex := this.setLineContent(&index, int(row), 0, style)
-		content := this.list.Get(row)
-		for col, r := range *content {
+		prefix := fmt.Sprintf(indexFormat, i)
+		col := this.setLineContent(&prefix, row, 0, style)
+		content := this.list.Get(i)
+		for _, r := range *content {
 			toReadable(&r)
-			this.screen.SetContent(col+colIndex, int(row), r, nil, style)
+			this.screen.SetContent(col, row, r, nil, style)
+			col += runewidth.RuneWidth(r)
 		}
 	}
 	this.screen.Show()
@@ -100,19 +111,24 @@ func (this *View) render() {
 
 func (this *View) onKeyEvent(keyEvent *tcell.EventKey) (finished bool) {
 	switch keyEvent.Key() {
-	case tcell.KeyESC:
-		close(this.close)
-		return true
 	case tcell.KeyCtrlC:
 		close(this.close)
 		return true
+	case tcell.KeyESC:
+		this.ctrl.Disappear()
+		return false
 	case tcell.KeyUp:
-		this.cursor--
-		this.rerender <- struct{}{}
+		this.ctrl.Up()
 		return false
 	case tcell.KeyDown:
-		this.cursor++
-		this.rerender <- struct{}{}
+		this.ctrl.Down()
+		return false
+	case tcell.KeyEnter:
+		err := this.ctrl.Paste()
+		// TODO show status
+		if err != nil {
+			log.Printf("View.onKeyEvent: %v", err)
+		}
 		return false
 	default:
 		return false
@@ -125,7 +141,7 @@ func (this *View) setLineContent(s *string, row int, col int, style tcell.Style)
 	for ; i < len(*s); i++ {
 		this.screen.SetContent(col+i, row, rStr[i], nil, style)
 	}
-	return col + i + 1
+	return col + i
 }
 
 func toReadable(r *rune) {

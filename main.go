@@ -1,6 +1,7 @@
 package main
 
 import (
+	"clipx/controllers"
 	"clipx/models"
 	"clipx/views"
 	"log"
@@ -24,9 +25,14 @@ var written = make(chan bool, 16)
 var monitorErr = make(chan error, 1)
 var monitor = models.NewMonitor(written)
 
+var cursor = models.NewCursor(list.Size())
+
+// controller
+var ctrl = controllers.NewController(cursor, cb, list)
+
 // view
 var viewClosed = make(chan struct{})
-var view = views.NewView(list, viewClosed)
+var view = views.NewView(ctrl, list, cursor, viewClosed)
 
 var once sync.Once
 
@@ -59,9 +65,10 @@ func main() {
 	}()
 
 	// stop by signal
+	interrupted := make(chan bool)
 	OnInterrupted(func() {
 		log.Println("[interrupted]")
-		cleanup()
+		interrupted <- true
 	})
 
 	// main loop
@@ -81,7 +88,14 @@ loop:
 				break loop
 			}
 		case <-viewClosed:
+			log.Printf("main:loop viewClosed")
 			cleanup()
+			log.Printf("main:loop viewClosed fin")
+			break loop
+		case <-interrupted:
+			log.Printf("main:loop interrupted")
+			cleanup()
+			log.Printf("main:loop interrupted fin")
 			break loop
 		case err := <-monitorErr:
 			log.Printf("Monitoring Error: %v\n", err)
@@ -95,10 +109,11 @@ loop:
 	<-hooked
 
 	// TODO
-	// paste
 	// save & load file
 	// help
-	// max lines
+	// max lines?
+	// なんかクリップボードのchan詰まっている気がする
+	// view のループとmain loop 同期しないからclipboard の更新が終わった保証ないのでは？
 	list.Dump()
 	log.Println("[process finished]")
 }
@@ -152,6 +167,7 @@ func onHooked(keyInfo *models.KeyInfo) {
 	now := time.Now()
 	if now.Sub(lastKeyDown).Milliseconds() <= ThresholdMilli {
 		log.Printf("to be selection mode")
+		ctrl.Appear()
 	}
 	lastKeyDown = now
 }

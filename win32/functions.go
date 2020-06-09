@@ -26,10 +26,13 @@ var shell32Dll = loadDll("shell32.dll")
 
 // functions
 var (
-	RegisterClassExW = findProc(user32Dll, "RegisterClassExW")
-	DefWindowProcW   = findProc(user32Dll, "DefWindowProcW")
-	CreateWindowExW  = findProc(user32Dll, "CreateWindowExW")
-	DestroyWindow    = findProc(user32Dll, "DestroyWindow")
+	RegisterClassExW    = findProc(user32Dll, "RegisterClassExW")
+	DefWindowProcW      = findProc(user32Dll, "DefWindowProcW")
+	CreateWindowExW     = findProc(user32Dll, "CreateWindowExW")
+	DestroyWindow       = findProc(user32Dll, "DestroyWindow")
+	GetForegroundWindow = findProc(user32Dll, "GetForegroundWindow")
+	SetFocus            = findProc(user32Dll, "SetFocus")
+	SetActiveWindow     = findProc(user32Dll, "SetActiveWindow")
 
 	AddClipboardFormatListener    = findProc(user32Dll, "AddClipboardFormatListener")
 	RemoveClipboardFormatListener = findProc(user32Dll, "RemoveClipboardFormatListener")
@@ -38,6 +41,8 @@ var (
 	OpenClipboard                 = findProc(user32Dll, "OpenClipboard")
 	CloseClipboard                = findProc(user32Dll, "CloseClipboard")
 	GetClipboardData              = findProc(user32Dll, "GetClipboardData")
+	SetClipboardData              = findProc(user32Dll, "SetClipboardData")
+	EmptyClipboard                = findProc(user32Dll, "EmptyClipboard")
 
 	DragQueryFileW = findProc(shell32Dll, "DragQueryFileW")
 
@@ -47,13 +52,20 @@ var (
 
 	GetCurrentThreadId = findProc(kernel32Dll, "GetCurrentThreadId")
 
+	GlobalAlloc      = findProc(kernel32Dll, "GlobalAlloc")
+	GlobalFree       = findProc(kernel32Dll, "GlobalFree")
 	GlobalLock       = findProc(kernel32Dll, "GlobalLock")
 	GlobalUnlock     = findProc(kernel32Dll, "GlobalUnlock")
 	GetModuleHandleW = findProc(kernel32Dll, "GetModuleHandleW")
+	GetConsoleWindow = findProc(kernel32Dll, "GetConsoleWindow")
 
 	GetMessageW      = findProc(user32Dll, "GetMessageW")
 	TranslateMessage = findProc(user32Dll, "TranslateMessage")
 	DispatchMessageW = findProc(user32Dll, "DispatchMessageW")
 	SendMessageW     = findProc(user32Dll, "SendMessageW")
 	PostQuitMessage  = findProc(user32Dll, "PostQuitMessage")
+
+	SendInput = findProc(user32Dll, "SendInput")
+
+	CopyMemory = findProc(kernel32Dll, "RtlCopyMemory")
 )

@@ -38,3 +38,34 @@ type KBDLLHOOKSTRUCT struct {
 	Time      DWORD
 	ExtraInfo uintptr
 }
+
+type INPUT struct {
+	Type    DWORD
+	padding [4]byte
+	Union   [32]byte
+	// {
+	//   MOUSEINPUT    mi;
+	//   KEYBDINPUT    ki;
+	//   HARDWAREINPUT hi;
+	// } DUMMYUNIONNAME;
+}
+type MOUSEINPUT struct {
+	DX        LONG
+	DY        LONG
+	MouseData DWORD
+	Flags     DWORD
+	Time      DWORD
+	ExtraInfo ULONG_PTR
+}
+type KEYBDINPUT struct {
+	VK        WORD
+	Scan      WORD
+	Flags     DWORD
+	Time      DWORD
+	ExtraInfo ULONG_PTR
+}
+type HARDWAREINPUT struct {
+	Msg    DWORD
+	ParamL WORD
+	ParamH WORD
+}
