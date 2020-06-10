@@ -10,6 +10,7 @@ type Window interface {
 	Show()
 	Hide()
 	SendPasteCommand() error
+	ResizeWindow(w int16, i int16) error
 }
 
 func NewWindow() Window {
@@ -25,6 +26,7 @@ type MsWinWindow struct {
 }
 
 func (this *MsWinWindow) Show() {
+	log.Println("Window.Show")
 	this.Hide()
 	res, _, err := win32.SendMessageW.Call(this.windowHandle, win32.WM_SYSCOMMAND, win32.SC_RESTORE, 0)
 	if res != 0 {
@@ -103,4 +105,17 @@ func (this *MsWinWindow) SendPasteCommand() error {
 	} else {
 		return nil
 	}
+}
+
+func (this MsWinWindow) ResizeWindow(w int16, h int16) error {
+	stdOutHandle, lastErr, err := win32.GetStdHandle.Call(win32.STD_OUTPUT_HANDLE)
+	if lastErr != 0 {
+		return err
+	}
+	newSize := win32.SMALL_RECT{0, 0, w, h}
+	_, lastErr, err = win32.SetConsoleWindowInfo.Call(stdOutHandle, win32.TRUE, uintptr(unsafe.Pointer(&newSize)))
+	if lastErr != 0 {
+		return err
+	}
+	return nil
 }

@@ -69,3 +69,10 @@ type HARDWAREINPUT struct {
 	ParamL WORD
 	ParamH WORD
 }
+
+type SMALL_RECT struct {
+	Left   SHORT
+	Top    SHORT
+	Right  SHORT
+	Bottom SHORT
+}

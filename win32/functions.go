@@ -52,12 +52,14 @@ var (
 
 	GetCurrentThreadId = findProc(kernel32Dll, "GetCurrentThreadId")
 
-	GlobalAlloc      = findProc(kernel32Dll, "GlobalAlloc")
-	GlobalFree       = findProc(kernel32Dll, "GlobalFree")
-	GlobalLock       = findProc(kernel32Dll, "GlobalLock")
-	GlobalUnlock     = findProc(kernel32Dll, "GlobalUnlock")
-	GetModuleHandleW = findProc(kernel32Dll, "GetModuleHandleW")
-	GetConsoleWindow = findProc(kernel32Dll, "GetConsoleWindow")
+	GlobalAlloc          = findProc(kernel32Dll, "GlobalAlloc")
+	GlobalFree           = findProc(kernel32Dll, "GlobalFree")
+	GlobalLock           = findProc(kernel32Dll, "GlobalLock")
+	GlobalUnlock         = findProc(kernel32Dll, "GlobalUnlock")
+	GetModuleHandleW     = findProc(kernel32Dll, "GetModuleHandleW")
+	GetConsoleWindow     = findProc(kernel32Dll, "GetConsoleWindow")
+	GetStdHandle         = findProc(kernel32Dll, "GetStdHandle")
+	SetConsoleWindowInfo = findProc(kernel32Dll, "SetConsoleWindowInfo")
 
 	GetMessageW      = findProc(user32Dll, "GetMessageW")
 	TranslateMessage = findProc(user32Dll, "TranslateMessage")

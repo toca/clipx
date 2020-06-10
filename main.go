@@ -21,7 +21,7 @@ var hookErr = make(chan error, 1)
 var hook = models.NewKeyHooker(hooked)
 
 // monitoring clipboard
-var written = make(chan bool, 16)
+var written = make(chan bool, 64)
 var monitorErr = make(chan error, 1)
 var monitor = models.NewMonitor(written)
 
@@ -31,10 +31,8 @@ var cursor = models.NewCursor(list.Size())
 var ctrl = controllers.NewController(cursor, cb, list)
 
 // view
-var viewClosed = make(chan struct{})
-var view = views.NewView(ctrl, list, cursor, viewClosed)
-
-var once sync.Once
+var view = views.NewView(ctrl, list, cursor)
+var viewClosed = view.GetClosedNotify()
 
 func main() {
 	// show
@@ -114,12 +112,21 @@ loop:
 	// max lines?
 	// なんかクリップボードのchan詰まっている気がする
 	// view のループとmain loop 同期しないからclipboard の更新が終わった保証ないのでは？
+	// notify は受け取るんじゃなくて add observer にしないと複数のreceiverに対応できない
+	// block paste when empty
+	// list does not collect same content
+	// mouse select
+	// index keyboard shotcut access
 	list.Dump()
 	log.Println("[process finished]")
 }
 
+var once sync.Once // for cleanup()
+
 func cleanup() {
+	log.Println("main:enter creanup")
 	once.Do(func() {
+		log.Println("main: begen creanup")
 		err := monitor.Stop()
 		if err != nil {
 			log.Printf("Monitor.Stop failed: %v\n", err)
@@ -128,7 +135,9 @@ func cleanup() {
 		if err != nil {
 			log.Printf("Hooker.Stop failed: %v\n", err)
 		}
+		log.Println("main: end creanup")
 	})
+	log.Println("main:reave creanup")
 }
 
 func onClipboardWritten() {

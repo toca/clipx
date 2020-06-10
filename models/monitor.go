@@ -4,6 +4,7 @@ import (
 	"clipx/win32"
 	"log"
 	"syscall"
+	"time"
 	"unsafe"
 )
 
@@ -74,6 +75,7 @@ func (this WindowsMonitor) windowProc(window win32.HWND, message win32.UINT, wPa
 	switch message {
 	case win32.WM_CLIPBOARDUPDATE:
 		this.written <- true
+		time.Sleep(5 * time.Millisecond)
 	case win32.WM_DESTROY:
 		win32.PostQuitMessage.Call(0)
 	}

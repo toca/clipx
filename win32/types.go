@@ -89,3 +89,8 @@ const (
 const (
 	GHND = 0x0042
 )
+
+// STD handle
+const (
+	STD_OUTPUT_HANDLE = 0xFFFFFFF5
+)

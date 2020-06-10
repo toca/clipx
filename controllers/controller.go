@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"clipx/models"
+	"fmt"
 )
 
 // public interface
@@ -11,6 +12,8 @@ type Controller interface {
 	Paste() error
 	Appear()
 	Disappear()
+	SetWindowSize(int16, int16) error
+	SetCursor(uint)
 }
 
 // internal implement
@@ -34,8 +37,13 @@ func (this *controller) Down() {
 }
 
 func (this *controller) Paste() error {
-	this.window.Hide()
 	data := this.list.Get(this.cursor.GetIndex())
+	if len(*data) == 0 {
+		return fmt.Errorf("data is empty")
+	}
+
+	this.window.Hide()
+
 	err := this.clipBoard.SetString(data)
 	if err != nil {
 		return err
@@ -45,8 +53,7 @@ func (this *controller) Paste() error {
 		return err
 	}
 	// already clipboard added
-	this.cursor.Down()
-	this.list.Remove(this.cursor.GetIndex())
+	this.list.Remove(this.cursor.GetIndex() + 1)
 	return nil
 }
 
@@ -57,4 +64,12 @@ func (this *controller) Appear() {
 
 func (this *controller) Disappear() {
 	this.window.Hide()
+}
+
+func (this *controller) SetWindowSize(w int16, h int16) error {
+	return this.window.ResizeWindow(w, h)
+}
+
+func (this *controller) SetCursor(i uint) {
+	this.cursor.Set(i)
 }

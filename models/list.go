@@ -9,22 +9,21 @@ type List interface {
 	Add(string)
 	Get(uint) *string
 	Remove(uint)
-	GetNotify() chan bool
+	AddListener(chan struct{})
 	Dump()
 }
 type _list struct {
-	list   []string
-	size   uint
-	cur    uint
-	notify chan bool
-	last   string
+	list      []string
+	size      uint
+	cur       uint
+	last      string
+	listeners []chan struct{}
 }
 
 func NewList(size uint) List {
 	list := make([]string, size, size)
 	cur := -1
-	notify := make(chan bool, 1)
-	return &_list{list, size, uint(cur), notify, ""}
+	return &_list{list, size, uint(cur), "", make([]chan struct{}, 0)}
 }
 
 func (this *_list) Size() uint {
@@ -37,7 +36,9 @@ func (this *_list) Add(str string) {
 	this.last = this.list[(this.cur+1)%this.size]
 	this.list[(this.cur+1)%this.size] = str
 	this.cur++
-	this.notify <- true
+	for i, _ := range this.listeners {
+		this.listeners[i] <- struct{}{}
+	}
 }
 
 func (this *_list) Get(i uint) *string {
@@ -46,14 +47,16 @@ func (this *_list) Get(i uint) *string {
 
 func (this *_list) Remove(index uint) {
 	i := uint(index)
-	for ; this.toAbsoluteIndex(0) < this.toAbsoluteIndex(i+1); i++ {
+	for ; this.toAbsoluteIndex(0) != this.toAbsoluteIndex(i+1); i++ {
+		// log.Printf("%v <- %v", this.list[this.toAbsoluteIndex(i)], this.list[this.toAbsoluteIndex(i+1)])
 		this.list[this.toAbsoluteIndex(i)] = this.list[this.toAbsoluteIndex(i+1)]
 	}
+	// log.Printf("last %v <- %v", this.list[this.toAbsoluteIndex(i)], this.last)
 	this.list[this.toAbsoluteIndex(i)] = this.last
 }
 
-func (this *_list) GetNotify() chan bool {
-	return this.notify
+func (this *_list) AddListener(c chan struct{}) {
+	this.listeners = append(this.listeners, c)
 }
 
 func (this *_list) Dump() {
