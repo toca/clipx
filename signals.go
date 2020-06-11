@@ -1,16 +1,52 @@
 package main
 
 import (
+	"clipx/win32"
+	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 )
 
-func OnInterrupted(callback func()) {
+type Signals interface {
+	SetOnInterrupted(chan struct{})
+	SetOnTerminated(chan struct{})
+}
+
+func SetOnInterrupted(interrupted chan struct{}) {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT)
 	go func() {
 		<-sigChan
-		callback()
+		interrupted <- struct{}{}
+		<-interrupted
 	}()
+}
+
+var sigOnce = sync.Once{}
+var terminatedListeners = make([]chan struct{}, 0)
+
+func SetOnTerminated(terminated chan struct{}) {
+	sigOnce.Do(func() {
+		_, lastErr, err := win32.SetConsoleCtrlHandler.Call(syscall.NewCallback(ConsoleCtrlHandler), win32.TRUE)
+		if lastErr != 0 {
+			panic(err)
+		}
+	})
+	terminatedListeners = append(terminatedListeners, terminated)
+}
+
+func ConsoleCtrlHandler(event win32.DWORD) uintptr {
+	switch event {
+	case win32.CTRL_CLOSE_EVENT:
+		log.Println(terminatedListeners)
+		for i := range terminatedListeners {
+			terminatedListeners[i] <- struct{}{}
+			<-terminatedListeners[i]
+		}
+		return uintptr(win32.TRUE)
+	default:
+		return uintptr(win32.FALSE)
+	}
 }

@@ -12,6 +12,9 @@ type Window interface {
 	SendPasteCommand() error
 	ResizeWindow(w int16, i int16) error
 }
+type MsWinWindow struct {
+	windowHandle win32.HWND
+}
 
 func NewWindow() Window {
 	windowHandle, lastErr, err := win32.GetConsoleWindow.Call()
@@ -19,10 +22,6 @@ func NewWindow() Window {
 		log.Panic(err)
 	}
 	return &MsWinWindow{windowHandle}
-}
-
-type MsWinWindow struct {
-	windowHandle win32.HWND
 }
 
 func (this *MsWinWindow) Show() {

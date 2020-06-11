@@ -69,11 +69,9 @@ func main() {
 	}()
 
 	// stop by signal
-	interrupted := make(chan bool)
-	OnInterrupted(func() {
-		log.Println("[interrupted]")
-		interrupted <- true
-	})
+	interrupted := make(chan struct{}, 1)
+	SetOnInterrupted(interrupted)
+	SetOnTerminated(interrupted)
 
 	// main loop
 loop:
@@ -99,6 +97,7 @@ loop:
 		case <-interrupted:
 			log.Printf("main:loop interrupted")
 			cleanup()
+			interrupted <- struct{}{}
 			log.Printf("main:loop interrupted fin")
 			break loop
 		case err := <-monitorErr:
