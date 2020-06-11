@@ -31,6 +31,7 @@ var (
 	CreateWindowExW     = findProc(user32Dll, "CreateWindowExW")
 	DestroyWindow       = findProc(user32Dll, "DestroyWindow")
 	GetForegroundWindow = findProc(user32Dll, "GetForegroundWindow")
+	SetForegroundWindow = findProc(user32Dll, "SetForegroundWindow")
 	SetFocus            = findProc(user32Dll, "SetFocus")
 	SetActiveWindow     = findProc(user32Dll, "SetActiveWindow")
 

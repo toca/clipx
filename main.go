@@ -204,7 +204,7 @@ func onClipboardWritten() {
 const VK_CTRL = 17
 const VK_LCONTROL = 162
 const VK_RCONTROL = 163
-const ThresholdMilli = 600
+const ThresholdMilli = 400
 
 var lastKeyDown = time.Now()
 
@@ -212,6 +212,7 @@ func onHooked(keyInfo *models.KeyInfo) {
 	if keyInfo.Action != models.KeyUp {
 		return
 	}
+
 	if keyInfo.VirtualKeyCode != VK_CTRL && keyInfo.VirtualKeyCode != VK_LCONTROL && keyInfo.VirtualKeyCode != VK_RCONTROL {
 		return
 	}
@@ -219,6 +220,7 @@ func onHooked(keyInfo *models.KeyInfo) {
 	if now.Sub(lastKeyDown).Milliseconds() <= ThresholdMilli {
 		log.Printf("to be selection mode")
 		ctrl.Appear()
+	} else { // program send ctrl + v
+		lastKeyDown = now
 	}
-	lastKeyDown = now
 }

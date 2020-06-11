@@ -14,6 +14,7 @@ type Window interface {
 }
 type MsWinWindow struct {
 	windowHandle win32.HWND
+	prevWindow   win32.HWND
 }
 
 func NewWindow() Window {
@@ -21,11 +22,19 @@ func NewWindow() Window {
 	if lastErr != 0 {
 		log.Panic(err)
 	}
-	return &MsWinWindow{windowHandle}
+	return &MsWinWindow{windowHandle, 0}
 }
 
 func (this *MsWinWindow) Show() {
+	fg, lastErr, err := win32.GetForegroundWindow.Call()
+	if lastErr != 0 {
+		log.Printf("MsWinWindow.Show: %v")
+	}
+	this.prevWindow = fg
+
+	// hide once
 	this.Hide()
+	// restore and focus
 	res, _, err := win32.SendMessageW.Call(this.windowHandle, win32.WM_SYSCOMMAND, win32.SC_RESTORE, 0)
 	if res != 0 {
 		log.Println(err)
@@ -39,14 +48,22 @@ func (this *MsWinWindow) Show() {
 }
 
 func (this *MsWinWindow) Hide() {
+	if this.prevWindow != 0 {
+		_, lastErr, err := win32.SetForegroundWindow.Call(this.prevWindow)
+		if lastErr != 0 {
+			log.Printf("MsWinWindow.Hide: %v", err)
+		}
+	}
+
 	_, lastErr, err := win32.SendMessageW.Call(this.windowHandle, win32.WM_SYSCOMMAND, win32.SC_MINIMIZE, 0)
 	if lastErr != 0 {
 		log.Println(err)
 	}
-	_, lastErr, err = win32.SendMessageW.Call(this.windowHandle, win32.WM_SYSCOMMAND, win32.SC_PREVWINDOW, 0)
-	if lastErr != 0 {
-		log.Println(err)
-	}
+
+	// _, lastErr, err = win32.SendMessageW.Call(this.windowHandle, win32.WM_SYSCOMMAND, win32.SC_PREVWINDOW, 0)
+	// if lastErr != 0 {
+	// 	log.Println(err)
+	// }
 }
 
 const VK_CONTROL = 17

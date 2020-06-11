@@ -59,17 +59,14 @@ func NewView(ctrl controllers.Controller, list models.List, cursor models.Cursor
 }
 
 func (this *View) Show() {
+	this.screen.EnableMouse()
+	defer this.screen.DisableMouse()
 	this.render()
 	event := make(chan tcell.Event)
 	go func() {
 		for {
 			e := this.screen.PollEvent()
-			switch e := e.(type) {
-			case *tcell.EventInterrupt:
-				return
-			default:
-				event <- e
-			}
+			event <- e
 		}
 	}()
 
@@ -118,6 +115,18 @@ func (this *View) onEvent(event tcell.Event) {
 	switch e := event.(type) {
 	case *tcell.EventKey:
 		this.onKeyEvent(e)
+	case *tcell.EventMouse:
+		if e.Buttons() != tcell.Button1 {
+			return
+		}
+		_, y := e.Position()
+		if 1 <= y && uint(y) < this.listSize+1 {
+			this.ctrl.SetCursor(uint(y - 1))
+			err := this.ctrl.Paste()
+			if err != nil {
+				this.status = err.Error()
+			}
+		}
 	case *tcell.EventResize:
 		this.render()
 	default:
