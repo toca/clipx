@@ -26,7 +26,6 @@ type MsWinWindow struct {
 }
 
 func (this *MsWinWindow) Show() {
-	log.Println("Window.Show")
 	this.Hide()
 	res, _, err := win32.SendMessageW.Call(this.windowHandle, win32.WM_SYSCOMMAND, win32.SC_RESTORE, 0)
 	if res != 0 {

@@ -41,8 +41,6 @@ func NewView(ctrl controllers.Controller, list models.List, cursor models.Cursor
 		panic(err)
 	}
 
-	log.Println(screen.Size())
-
 	listEvent := make(chan struct{}, 1)
 	list.AddListener(listEvent)
 	cursorEvent := make(chan struct{}, 4)

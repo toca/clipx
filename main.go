@@ -4,38 +4,44 @@ import (
 	"clipx/controllers"
 	"clipx/models"
 	"clipx/views"
+	"flag"
 	"log"
 	"sync"
 	"time"
 )
 
+const DATA_LENGTH = 16
+
 // clipboard
-var cb = models.NewClipboard()
+var cb models.Clipboard
 
 // history buffer
-var list = models.NewList(16)
+var list models.List
+var storagePath *string
 
 // globak keyboard hook
-var hooked = make(chan models.KeyInfo, 64)
-var hookErr = make(chan error, 1)
-var hook = models.NewKeyHooker(hooked)
+var hooked chan models.KeyInfo
+var hookErr chan error
+var hook models.KeyHooker
 
 // monitoring clipboard
-var written = make(chan bool, 64)
-var monitorErr = make(chan error, 1)
-var monitor = models.NewMonitor(written)
+var written chan bool
+var monitorErr chan error
+var monitor models.Monitor
 
-var cursor = models.NewCursor(list.Size())
+// cursor
+var cursor models.Cursor
 
 // controller
-var ctrl = controllers.NewController(cursor, cb, list)
+var ctrl controllers.Controller
 
 // view
-var view = views.NewView(ctrl, list, cursor)
-var viewClosed = view.GetClosedNotify()
+var view *views.View
+var viewClosed chan struct{}
 
 func main() {
-	// show
+	initialize()
+	// show ui
 	go func() {
 		view.Show()
 	}()
@@ -48,7 +54,7 @@ func main() {
 		}
 	}()
 
-	// start monitoring
+	// start clipboard monitoring
 	go func() {
 		log.Println("[begin monitoring]")
 		err := monitor.Monitoring()
@@ -107,18 +113,50 @@ loop:
 	<-hooked
 
 	// TODO
-	// save & load file
-	// help
-	// max lines?
 	// なんかクリップボードのchan詰まっている気がする
 	// view のループとmain loop 同期しないからclipboard の更新が終わった保証ないのでは？
-	// notify は受け取るんじゃなくて add observer にしないと複数のreceiverに対応できない
-	// block paste when empty
 	// list does not collect same content
 	// mouse select
-	// index keyboard shotcut access
 	list.Dump()
 	log.Println("[process finished]")
+}
+
+func initialize() {
+	// clipboard
+	cb = models.NewClipboard()
+	// history buffer
+	storagePath = flag.String("s", "", "path to save and load clipboard data")
+	flag.Parse()
+	if 0 < len(*storagePath) {
+		storage := models.NewStorage()
+		data, err := storage.Load(storagePath)
+		if err != nil {
+			panic(err)
+		}
+		list = models.NewListWithData(DATA_LENGTH, data)
+	} else {
+		list = models.NewList(DATA_LENGTH)
+	}
+
+	// globak keyboard hook
+	hooked = make(chan models.KeyInfo, 64)
+	hookErr = make(chan error, 1)
+	hook = models.NewKeyHooker(hooked)
+
+	// monitoring clipboard
+	written = make(chan bool, 64)
+	monitorErr = make(chan error, 1)
+	monitor = models.NewMonitor(written)
+
+	// cursor
+	cursor = models.NewCursor(DATA_LENGTH)
+
+	// controller
+	ctrl = controllers.NewController(cursor, cb, list)
+
+	// view
+	view = views.NewView(ctrl, list, cursor)
+	viewClosed = view.GetClosedNotify()
 }
 
 var once sync.Once // for cleanup()
@@ -127,7 +165,12 @@ func cleanup() {
 	log.Println("main:enter creanup")
 	once.Do(func() {
 		log.Println("main: begen creanup")
-		err := monitor.Stop()
+		storage := models.NewStorage()
+		err := storage.Save(storagePath, list.GetData())
+		if err != nil {
+			log.Printf("Storage.Save failed: %v", err)
+		}
+		err = monitor.Stop()
 		if err != nil {
 			log.Printf("Monitor.Stop failed: %v\n", err)
 		}
@@ -156,7 +199,7 @@ func onClipboardWritten() {
 	} else {
 		log.Println(str)
 	}
-	list.Add(str)
+	list.Push(str)
 }
 
 const VK_CTRL = 17
