@@ -92,7 +92,7 @@ func (this *WindowsKeyHooker) Start() error {
 }
 
 func (this *WindowsKeyHooker) Stop() error {
-	_, lastErr, err := win32.UnhookWindowsHookEx.Call(win32.WH_KEYBOARD_LL)
+	_, lastErr, err := win32.UnhookWindowsHookEx.Call(this.neighbor)
 	if lastErr != 0 {
 		return err
 	}
