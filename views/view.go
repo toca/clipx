@@ -197,9 +197,12 @@ func (this *View) setListContent(row int) int {
 		col := this.setLineContent(&prefix, row+int(i), 0, style)
 		content := this.list.Get(i)
 		for _, r := range *content {
-			toReadable(&r)
-			this.screen.SetContent(col, row+int(i), r, nil, style)
-			col += runewidth.RuneWidth(r)
+			r := toReadable(&r)
+			if r == nil {
+				continue
+			}
+			this.screen.SetContent(col, row+int(i), *r, nil, style)
+			col += runewidth.RuneWidth(*r)
 		}
 		for ; col <= WINDOW_WIDTH; col++ {
 			this.screen.SetContent(col, row+int(i), ' ', nil, style)
@@ -228,11 +231,14 @@ func (this *View) setLineContent(s *string, row int, col int, style tcell.Style)
 	return col + i
 }
 
-func toReadable(r *rune) {
+func toReadable(r *rune) *rune {
+	mark := '⏎'
 	// windows の clipboard は改行を \r\n でとってくる
 	if *r == '\n' {
-		*r = '⏎'
+		return &mark
 	} else if *r == '\r' {
-		*r = '↵'
+		// *r = '⏎'
+		return nil
 	}
+	return r
 }
