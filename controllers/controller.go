@@ -37,7 +37,7 @@ func (this *controller) Down() {
 }
 
 func (this *controller) Paste() error {
-	data := this.list.Get(this.cursor.GetIndex())
+	data := this.list.Pop(this.cursor.GetIndex())
 	if len(*data) == 0 {
 		return fmt.Errorf("data is empty")
 	}
@@ -52,8 +52,8 @@ func (this *controller) Paste() error {
 	if err != nil {
 		return err
 	}
-	// already clipboard added
-	this.list.Remove(this.cursor.GetIndex() + 1)
+	
+	// this.list.Remove(this.cursor.GetIndex() + 1) // + 1 => already clipboard added
 	return nil
 }
 

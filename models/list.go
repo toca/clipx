@@ -2,6 +2,7 @@ package models
 
 import (
 	"log"
+	linked_list "container/list"
 )
 
 type List interface {
@@ -9,32 +10,33 @@ type List interface {
 	Push(string)
 	Get(uint) *string
 	GetData() []string
-	Remove(uint)
+	Pop(uint) *string
 	AddListener(chan struct{})
 	Dump()
 }
 type list struct {
-	data      []string
+	data      *linked_list.List
 	size      uint
-	cur       uint
-	last      string
 	listeners []chan struct{}
 }
 
 func NewList(size uint) List {
-	data := make([]string, size, size)
-	cur := -1
-	return &list{data, size, uint(cur), "", make([]chan struct{}, 0)}
+	linkedList := linked_list.New()
+	for i := uint(0); i < size; i++ {
+		linkedList.PushBack("")
+	}
+	return &list{linkedList, size, make([]chan struct{}, 0)}
 }
 func NewListWithData(size uint, data []string) List {
-	cur := len(data) - 1
-	fixedData := make([]string, size)
-	copy(fixedData, data)
-	return &list{fixedData, size, uint(cur), "", make([]chan struct{}, 0)}
+	linkedList := linked_list.New()
+	for _, each := range data {
+		linkedList.PushBack(each)
+	}
+	return &list{linkedList, size, make([]chan struct{}, 0)}
 }
 
 func (this *list) Size() uint {
-	return uint(len(this.data))
+	return this.size
 }
 
 func (this *list) Push(str string) {
@@ -44,39 +46,51 @@ func (this *list) Push(str string) {
 	if str == *this.Get(0) {
 		return
 	}
-	this.last = this.data[(this.cur+1)%this.size]
-	this.data[(this.cur+1)%this.size] = str
-	this.cur++
+	this.data.PushBack(str)
+	this.data.Remove(this.data.Front())
 	for i, _ := range this.listeners {
 		this.listeners[i] <- struct{}{}
 	}
 }
 
-func (this *list) Get(i uint) *string {
-	return &this.data[(this.cur-i)%this.size]
+func (this *list) Get(index uint) *string {
+	s := ""
+	cur := this.data.Back()
+	for i := uint(0); i < this.size; i++ {
+		if index == i {
+			s = cur.Value.(string)
+			return &s
+		}
+		cur = cur.Prev()
+	}
+	log.Printf("List.Get() ERROR: out of index")
+	return &s
 }
 
 func (this *list) GetData() []string {
-	result := make([]string, 0, this.size)
-	for i, _ := range this.data {
-		index := this.toAbsoluteIndex(this.size - 1 - uint(i)) // from old
-		if len(this.data[index]) == 0 {
-			continue
-		}
-		result = append(result, this.data[index])
+	result := make([]string, this.size, this.size)
+	cur := this.data.Back()
+	for i := uint(0); i < this.size; i++ {
+		result[i] = cur.Value.(string)
+		cur = cur.Prev()
 	}
 	log.Println(result)
 	return result
 }
 
-func (this *list) Remove(index uint) {
-	i := uint(index)
-	for ; this.toAbsoluteIndex(0) != this.toAbsoluteIndex(i+1); i++ {
-		// log.Printf("%v <- %v", this.list[this.toAbsoluteIndex(i)], this.list[this.toAbsoluteIndex(i+1)])
-		this.data[this.toAbsoluteIndex(i)] = this.data[this.toAbsoluteIndex(i+1)]
+func (this *list) Pop(index uint) *string {
+	s := ""
+	cur := this.data.Back()
+	for i := uint(0); i < this.size; i++ {
+		if index == i {
+			s = cur.Value.(string)
+			this.data.MoveToFront(cur)
+			break
+		}
+		cur = cur.Prev()
 	}
-	// log.Printf("last %v <- %v", this.list[this.toAbsoluteIndex(i)], this.last)
-	this.data[this.toAbsoluteIndex(i)] = this.last
+	log.Printf("List.Pop error")
+	return &s
 }
 
 func (this *list) AddListener(c chan struct{}) {
@@ -84,10 +98,9 @@ func (this *list) AddListener(c chan struct{}) {
 }
 
 func (this *list) Dump() {
-	for i := range this.data {
-		log.Printf("%2d:[%s]\n", i, this.data[i])
+	cur := this.data.Back()
+	for i := uint(0); i < this.size; i++ {
+		log.Printf("%2d:[%s]\n", i, cur.Value.(string))
+		cur = cur.Next()
 	}
-}
-func (this *list) toAbsoluteIndex(i uint) uint {
-	return (this.cur - i) % this.size
 }
