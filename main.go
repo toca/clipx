@@ -130,6 +130,7 @@ func initialize() {
 		storage := models.NewStorage()
 		data, err := storage.Load(storagePath)
 		if err != nil {
+			log.Printf("Main Failed to load data")
 			panic(err)
 		}
 		list = models.NewListWithData(DATA_LENGTH, data)
@@ -182,18 +183,19 @@ func onClipboardWritten() {
 	log.Printf("[written]")
 	stringable, err := cb.IsStringable()
 	if err != nil {
-		log.Println(err)
+		log.Printf("onClipboardWritten error %v",err)
 		return
 	}
 	if !stringable {
+		log.Printf("onClipboardWritten data is not Stringable")
 		return
 	}
 	str, err := cb.GetAsString()
 	if err != nil {
-		log.Println(err)
-	} else {
-		log.Println(str)
+		log.Printf("onClipboardWritten error %v",err)
+		return
 	}
+	log.Printf("'%v...'", string([]rune(str)[:4]))
 	list.Push(str)
 }
 

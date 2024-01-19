@@ -56,11 +56,13 @@ func (this *WindowsClipboard) SetString(rawData *string) error {
 	// GlobalAlloc
 	globalHandle, _, err := win32.GlobalAlloc.Call(win32.GHND, size)
 	if globalHandle == 0 {
+		log.Printf("Clipboard.SetString Error: %v", globalHandle)
 		return err
 	}
 	// GlobalLock get pointer
 	blockHandle, _, err := win32.GlobalLock.Call(globalHandle)
 	if blockHandle == 0 {
+		log.Printf("Clipboard.SetString Error: %v", blockHandle)
 		win32.GlobalFree.Call(globalHandle)
 		return err
 	}
@@ -86,17 +88,20 @@ func (this *WindowsClipboard) SetString(rawData *string) error {
 			log.Println(err)
 		}
 	}()
-	if res != win32.TRUE {
+	if res == win32.FALSE {
+		log.Printf("Clipboard.SetString Error: %v", err)
 		return err
 	}
 	// EmptyClipboard
 	res, _, err = win32.EmptyClipboard.Call()
-	if res != win32.FALSE {
+	if res == win32.FALSE {
+		log.Printf("Clipboard.SetString Error: %v", err)
 		return err
 	}
 	// SetClipboardData
 	res, _, err = win32.SetClipboardData.Call(win32.CF_UNICODETEXT, blockHandle)
 	if res == 0 {
+		log.Printf("Clipboard.SetString Error: %v", err)
 		return err
 	}
 	return nil

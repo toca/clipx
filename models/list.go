@@ -29,8 +29,12 @@ func NewList(size uint) List {
 }
 func NewListWithData(size uint, data []string) List {
 	linkedList := linked_list.New()
+	log.Printf("NewListWithData %v", len(data))
 	for _, each := range data {
 		linkedList.PushBack(each)
+	}
+	for uint(linkedList.Len()) < size {
+		linkedList.PushBack("")
 	}
 	return &list{linkedList, size, make([]chan struct{}, 0)}
 }
@@ -48,18 +52,16 @@ func (this *list) Push(str string) {
 	}
 	this.data.PushBack(str)
 	this.data.Remove(this.data.Front())
-	for i, _ := range this.listeners {
-		this.listeners[i] <- struct{}{}
-	}
+	this.notify()
 }
 
 func (this *list) Get(index uint) *string {
 	s := ""
 	cur := this.data.Back()
-	if cur == nil {
-		return &s
-	}
 	for i := uint(0); i < this.size; i++ {
+		if cur == nil {
+			return &s
+		}
 		if index == i {
 			s = cur.Value.(string)
 			return &s
@@ -67,18 +69,18 @@ func (this *list) Get(index uint) *string {
 		cur = cur.Prev()
 	}
 	log.Printf("List.Get() ERROR: out of index")
-	return &s
+	panic("List.Get Error: data not found")
 }
 
 func (this *list) GetData() []string {
 	result := make([]string, this.size, this.size)
-	cur := this.data.Back()
-	if cur == nil {
-		return result
-	}
+	cur := this.data.Front()
 	for i := uint(0); i < this.size; i++ {
+		if cur == nil {
+			return result
+		}
 		result[i] = cur.Value.(string)
-		cur = cur.Prev()
+		cur = cur.Next()
 	}
 	log.Printf("List: %v", result)
 	return result
@@ -90,13 +92,14 @@ func (this *list) Pop(index uint) *string {
 	for i := uint(0); i < this.size; i++ {
 		if index == i {
 			s = cur.Value.(string)
-			this.data.MoveToFront(cur)
-			break
+			this.data.MoveToBack(cur)
+			this.notify()
+			return &s
 		}
 		cur = cur.Prev()
 	}
 	log.Printf("List.Pop error")
-	return &s
+	panic("List.Pop Data not found")
 }
 
 func (this *list) AddListener(c chan struct{}) {
@@ -104,12 +107,20 @@ func (this *list) AddListener(c chan struct{}) {
 }
 
 func (this *list) Dump() {
+	log.Printf("List.Dump: size %v", this.size)
+	log.Printf("data.len %v", this.data.Len())
 	cur := this.data.Back()
 	for i := uint(0); i < this.size; i++ {
 		if cur == nil {
 			break
 		}
-		log.Printf("List: %02d:[%s]\n", i, cur.Value.(string))
-		cur = cur.Next()
+		log.Printf("List: %02d:[%s]", i, cur.Value.(string))
+		cur = cur.Prev()
+	}
+}
+
+func (this *list) notify() {
+	for i, _ := range this.listeners {
+		this.listeners[i] <- struct{}{}
 	}
 }

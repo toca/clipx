@@ -3,6 +3,7 @@ package controllers
 import (
 	"github.com/toca/clipx/models"
 	"fmt"
+	"log"
 )
 
 // public interface
@@ -39,6 +40,7 @@ func (this *controller) Down() {
 func (this *controller) Paste() error {
 	data := this.list.Pop(this.cursor.GetIndex())
 	if len(*data) == 0 {
+		log.Println("error pasting")
 		return fmt.Errorf("data is empty")
 	}
 
