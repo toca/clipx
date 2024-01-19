@@ -1,7 +1,7 @@
 package controllers
 
 import (
-	"clipx/models"
+	"github.com/toca/clipx/models"
 	"fmt"
 )
 

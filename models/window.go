@@ -1,7 +1,7 @@
 package models
 
 import (
-	"clipx/win32"
+	"github.com/toca/clipx/win32"
 	"log"
 	"unsafe"
 )
@@ -18,16 +18,16 @@ type MsWinWindow struct {
 }
 
 func NewWindow() Window {
-	windowHandle, lastErr, err := win32.GetConsoleWindow.Call()
-	if lastErr != 0 {
+	windowHandle, _, err := win32.GetConsoleWindow.Call()
+	if windowHandle == 0 {
 		log.Panic(err)
 	}
 	return &MsWinWindow{windowHandle, 0}
 }
 
 func (this *MsWinWindow) Show() {
-	fg, lastErr, err := win32.GetForegroundWindow.Call()
-	if lastErr != 0 {
+	fg, _, err := win32.GetForegroundWindow.Call()
+	if fg == 0 {
 		log.Printf("MsWinWindow.Show: %v")
 	}
 	this.prevWindow = fg
@@ -49,16 +49,13 @@ func (this *MsWinWindow) Show() {
 
 func (this *MsWinWindow) Hide() {
 	if this.prevWindow != 0 {
-		_, lastErr, err := win32.SetForegroundWindow.Call(this.prevWindow)
-		if lastErr != 0 {
+		res, _, err := win32.SetForegroundWindow.Call(this.prevWindow)
+		if res == win32.FALSE {
 			log.Printf("MsWinWindow.Hide: %v", err)
 		}
 	}
 
-	_, lastErr, err := win32.SendMessageW.Call(this.windowHandle, win32.WM_SYSCOMMAND, win32.SC_MINIMIZE, 0)
-	if lastErr != 0 {
-		log.Println(err)
-	}
+	win32.SendMessageW.Call(this.windowHandle, win32.WM_SYSCOMMAND, win32.SC_MINIMIZE, 0)
 
 	// _, lastErr, err = win32.SendMessageW.Call(this.windowHandle, win32.WM_SYSCOMMAND, win32.SC_PREVWINDOW, 0)
 	// if lastErr != 0 {
@@ -123,13 +120,16 @@ func (this *MsWinWindow) SendPasteCommand() error {
 }
 
 func (this MsWinWindow) ResizeWindow(w int16, h int16) error {
-	stdOutHandle, lastErr, err := win32.GetStdHandle.Call(win32.STD_OUTPUT_HANDLE)
-	if lastErr != 0 {
+	// // stdOutHandle, lastErr, err := win32.GetStdHandle.Call(win32.STD_OUTPUT_HANDLE)
+	stdOutHandle, _, err := win32.GetStdHandle.Call(win32.STD_OUTPUT_HANDLE)
+	if stdOutHandle == win32.INVALID_HANDLE_VALUE {
+		log.Printf("Failed to GetStdHandle %v\n", err)
 		return err
 	}
 	newSize := win32.SMALL_RECT{0, 0, w, h}
-	_, lastErr, err = win32.SetConsoleWindowInfo.Call(stdOutHandle, win32.TRUE, uintptr(unsafe.Pointer(&newSize)))
-	if lastErr != 0 {
+	result, r2, err := win32.SetConsoleWindowInfo.Call(stdOutHandle, win32.TRUE, uintptr(unsafe.Pointer(&newSize)))
+	if result == 0 {
+		log.Printf("r2: %v err:%v\n", r2,err)
 		return err
 	}
 	return nil

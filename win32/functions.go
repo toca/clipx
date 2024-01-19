@@ -26,6 +26,8 @@ var shell32Dll = loadDll("shell32.dll")
 
 // functions
 var (
+	GetLastError        = findProc(kernel32Dll, "GetLastError")
+	
 	RegisterClassExW    = findProc(user32Dll, "RegisterClassExW")
 	DefWindowProcW      = findProc(user32Dll, "DefWindowProcW")
 	CreateWindowExW     = findProc(user32Dll, "CreateWindowExW")

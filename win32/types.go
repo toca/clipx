@@ -32,6 +32,7 @@ const (
 	TRUE  = 1
 )
 
+const INVALID_HANDLE_VALUE uintptr = ^uintptr(0)
 // create window
 const CW_USERDEFAULT = 0x80000000
 

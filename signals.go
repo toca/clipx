@@ -1,7 +1,7 @@
 package main
 
 import (
-	"clipx/win32"
+	"github.com/toca/clipx/win32"
 	"log"
 	"os"
 	"os/signal"
@@ -29,8 +29,8 @@ var terminatedListeners = make([]chan struct{}, 0)
 
 func SetOnTerminated(terminated chan struct{}) {
 	sigOnce.Do(func() {
-		_, lastErr, err := win32.SetConsoleCtrlHandler.Call(syscall.NewCallback(ConsoleCtrlHandler), win32.TRUE)
-		if lastErr != 0 {
+		res, _, err := win32.SetConsoleCtrlHandler.Call(syscall.NewCallback(ConsoleCtrlHandler), win32.TRUE)
+		if res == win32.FALSE {
 			panic(err)
 		}
 	})

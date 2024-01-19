@@ -1,8 +1,8 @@
 package views
 
 import (
-	"clipx/controllers"
-	"clipx/models"
+	"github.com/toca/clipx/controllers"
+	"github.com/toca/clipx/models"
 	"fmt"
 	"log"
 	"strconv"

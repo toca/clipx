@@ -1,7 +1,7 @@
 package models
 
 import (
-	"clipx/win32"
+	"github.com/toca/clipx/win32"
 	"fmt"
 	"log"
 	"syscall"
@@ -29,10 +29,7 @@ var clipboardFormats = [2]win32.UINT{win32.CF_HDROP, win32.CF_UNICODETEXT}
 func (this *WindowsClipboard) IsStringable() (bool, error) {
 
 	for i := range clipboardFormats {
-		res, lastErr, err := win32.IsClipboardFormatAvailable.Call(uintptr(clipboardFormats[i]))
-		if lastErr != 0 {
-			return false, err
-		}
+		res, _, _ := win32.IsClipboardFormatAvailable.Call(uintptr(clipboardFormats[i]))
 		if res != win32.FALSE {
 			return true, nil
 		}
@@ -57,54 +54,57 @@ func (this *WindowsClipboard) SetString(rawData *string) error {
 	data := syscall.StringToUTF16(*rawData)
 	size := uintptr(len(data) * 2)
 	// GlobalAlloc
-	globalHandle, lastErr, err := win32.GlobalAlloc.Call(win32.GHND, size)
-	if globalHandle == 0 || lastErr != 0 {
+	globalHandle, _, err := win32.GlobalAlloc.Call(win32.GHND, size)
+	if globalHandle == 0 {
 		return err
 	}
 	// GlobalLock get pointer
-	blockHandle, lastErr, err := win32.GlobalLock.Call(globalHandle)
-	if blockHandle == 0 || lastErr != 0 {
+	blockHandle, _, err := win32.GlobalLock.Call(globalHandle)
+	if blockHandle == 0 {
 		win32.GlobalFree.Call(globalHandle)
 		return err
 	}
 	// GlobalUnlock
 	defer func() {
-		_, lastErr, err = win32.GlobalUnlock.Call(blockHandle)
-		if lastErr != 0 {
-			log.Println(err)
+		res, _, err := win32.GlobalUnlock.Call(blockHandle)
+		if res == 0 {
+			lastError, _, _ := win32.GetLastError.Call()
+			if lastError != 0 {
+				log.Println(err)
+			}
 		}
 	}()
 	// can not detect error?
 	_, _, _ = win32.CopyMemory.Call(blockHandle, uintptr(unsafe.Pointer(&data[0])), size)
 
 	// OpenClipboard
-	res, lastErr, err := win32.OpenClipboard.Call(0)
+	res, _, _ := win32.OpenClipboard.Call(0)
 	// CloseClipboard
 	defer func() {
-		_, lastErr, err = win32.CloseClipboard.Call(blockHandle)
-		if lastErr != 0 {
+		res, _, err := win32.CloseClipboard.Call(blockHandle)
+		if res == win32.FALSE {
 			log.Println(err)
 		}
 	}()
-	if res != win32.TRUE || lastErr != 0 {
+	if res != win32.TRUE {
 		return err
 	}
 	// EmptyClipboard
-	res, lastErr, err = win32.EmptyClipboard.Call()
-	if lastErr != 0 {
+	res, _, err = win32.EmptyClipboard.Call()
+	if res != win32.FALSE {
 		return err
 	}
 	// SetClipboardData
-	res, lastErr, err = win32.SetClipboardData.Call(win32.CF_UNICODETEXT, blockHandle)
-	if lastErr != 0 {
+	res, _, err = win32.SetClipboardData.Call(win32.CF_UNICODETEXT, blockHandle)
+	if res == 0 {
 		return err
 	}
 	return nil
 }
 
 func GetClipboardSequenceNumber() (uint32, error) {
-	seq, lastErr, err := win32.GetClipboardSequenceNumber.Call()
-	if lastErr != 0 {
+	seq, _, err := win32.GetClipboardSequenceNumber.Call()
+	if seq == 0 {
 		return 0, err
 	}
 	return uint32(seq), nil
@@ -112,24 +112,23 @@ func GetClipboardSequenceNumber() (uint32, error) {
 
 func getStringData() (string, error) {
 	// open
-	res, lastErr, err := win32.OpenClipboard.Call(0)
-	if lastErr != 0 {
-		return "", err
-	}
+	res, _, err := win32.OpenClipboard.Call(0)
 	if res == win32.FALSE {
+		lastErr, _, _ := win32.GetLastError.Call()
+		log.Printf("Clipboard getStringData LastError:%v", lastErr)
 		return "", err
 	}
 	defer win32.CloseClipboard.Call()
 
 	// get handle
-	resultHandle, lastErr, err := win32.GetClipboardData.Call(win32.CF_UNICODETEXT)
-	if lastErr != 0 {
+	resultHandle, _, err := win32.GetClipboardData.Call(win32.CF_UNICODETEXT)
+	if resultHandle == 0 {
 		return "", err
 	}
 
 	// lock
-	resultPtr, lastErr, err := win32.GlobalLock.Call(resultHandle)
-	if lastErr != 0 {
+	resultPtr, _, err := win32.GlobalLock.Call(resultHandle)
+	if resultPtr == 0 {
 		return "", err
 	}
 	defer win32.GlobalUnlock.Call(resultHandle)
@@ -139,34 +138,33 @@ func getStringData() (string, error) {
 
 func getPathData() (string, error) {
 	// open
-	res, lastErr, err := win32.OpenClipboard.Call(0)
-	if lastErr != 0 {
-		return "", err
-	}
+	res, _, err := win32.OpenClipboard.Call(0)
 	if res == win32.FALSE {
+		lastErr, _, _ := win32.GetLastError.Call()
+		log.Printf("Clipboard getPath LastError: %v", lastErr)
 		return "", err
 	}
 	defer win32.CloseClipboard.Call()
 
 	// get handle
-	handle, lastErr, err := win32.GetClipboardData.Call(win32.CF_HDROP)
-	if lastErr != 0 {
+	handle, _, err := win32.GetClipboardData.Call(win32.CF_HDROP)
+	if handle == 0 {
 		return "", err
 	}
-	count, lastErr, err := win32.DragQueryFileW.Call(handle, 0xFFFFFFFF, uintptr(0), 0)
-	if lastErr != 0 {
+	count, _, err := win32.DragQueryFileW.Call(handle, 0xFFFFFFFF, uintptr(0), 0)
+	if count == 0 {
 		return "", err
 	}
 	result := ""
 	var i uintptr = 0
 	for ; i < count; i++ {
-		size, lastErr, err := win32.DragQueryFileW.Call(handle, i, 0, 0)
-		if lastErr != 0 {
+		size, _, err := win32.DragQueryFileW.Call(handle, i, 0, 0)
+		if size != 0 {
 			return "", err
 		}
 		buf := make([]uint16, size+1)
-		_, lastErr, err = win32.DragQueryFileW.Call(handle, uintptr(i), uintptr(unsafe.Pointer(&buf[0])), size+1)
-		if lastErr != 0 {
+		res, _, err = win32.DragQueryFileW.Call(handle, uintptr(i), uintptr(unsafe.Pointer(&buf[0])), size+1)
+		if res == 0 {
 			return "", err
 		}
 		result += syscall.UTF16ToString(buf) + EOL

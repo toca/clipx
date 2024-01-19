@@ -1,9 +1,9 @@
 package main
 
 import (
-	"clipx/controllers"
-	"clipx/models"
-	"clipx/views"
+	"github.com/toca/clipx/controllers"
+	"github.com/toca/clipx/models"
+	"github.com/toca/clipx/views"
 	"flag"
 	"log"
 	"sync"
@@ -161,9 +161,7 @@ func initialize() {
 var once sync.Once // for cleanup()
 
 func cleanup() {
-	log.Println("main:enter creanup")
 	once.Do(func() {
-		log.Println("main: begen creanup")
 		storage := models.NewStorage()
 		err := storage.Save(storagePath, list.GetData())
 		if err != nil {
@@ -177,9 +175,7 @@ func cleanup() {
 		if err != nil {
 			log.Printf("Hooker.Stop failed: %v\n", err)
 		}
-		log.Println("main: end creanup")
 	})
-	log.Println("main:reave creanup")
 }
 
 func onClipboardWritten() {

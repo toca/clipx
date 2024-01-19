@@ -56,6 +56,9 @@ func (this *list) Push(str string) {
 func (this *list) Get(index uint) *string {
 	s := ""
 	cur := this.data.Back()
+	if cur == nil {
+		return &s
+	}
 	for i := uint(0); i < this.size; i++ {
 		if index == i {
 			s = cur.Value.(string)
@@ -70,11 +73,14 @@ func (this *list) Get(index uint) *string {
 func (this *list) GetData() []string {
 	result := make([]string, this.size, this.size)
 	cur := this.data.Back()
+	if cur == nil {
+		return result
+	}
 	for i := uint(0); i < this.size; i++ {
 		result[i] = cur.Value.(string)
 		cur = cur.Prev()
 	}
-	log.Println(result)
+	log.Printf("List: %v", result)
 	return result
 }
 
@@ -100,7 +106,10 @@ func (this *list) AddListener(c chan struct{}) {
 func (this *list) Dump() {
 	cur := this.data.Back()
 	for i := uint(0); i < this.size; i++ {
-		log.Printf("%2d:[%s]\n", i, cur.Value.(string))
+		if cur == nil {
+			break
+		}
+		log.Printf("List: %02d:[%s]\n", i, cur.Value.(string))
 		cur = cur.Next()
 	}
 }

@@ -1,7 +1,7 @@
 package models
 
 import (
-	"clipx/win32"
+	"github.com/toca/clipx/win32"
 	"log"
 	"syscall"
 	"unsafe"
@@ -52,7 +52,7 @@ func (this *WindowsKeyHooker) Start() error {
 
 	// create window
 	hinstance, _, err := win32.GetModuleHandleW.Call(0)
-	this.window, lastErr, err = win32.CreateWindowExW.Call(
+	this.window, _, err = win32.CreateWindowExW.Call(
 		0,
 		uintptr(unsafe.Pointer(className)),
 		uintptr(unsafe.Pointer(className)),
@@ -63,13 +63,16 @@ func (this *WindowsKeyHooker) Start() error {
 		0,
 		hinstance,
 		0)
-	if lastErr != 0 {
+	if this.window == 0 {
+		log.Printf("WindowsKeyHooker.Start CreateWindowExW Error: %v", err)
 		return err
 	}
 
 	// set hook
-	this.neighbor, lastErr, err = win32.SetWindowsHookExW.Call(win32.WH_KEYBOARD_LL, syscall.NewCallback(this.hookProc), hinstance, uintptr(0))
-	if lastErr != 0 {
+	this.neighbor, _, err = win32.SetWindowsHookExW.Call(win32.WH_KEYBOARD_LL, syscall.NewCallback(this.hookProc), hinstance, uintptr(0))
+	if this.neighbor == 0 {
+		lastErr, _, _ := win32.GetLastError.Call()
+		log.Printf("WindowsKeyHooker.Start LastError: %v", lastErr)
 		return err
 	}
 
@@ -77,13 +80,11 @@ func (this *WindowsKeyHooker) Start() error {
 	msg := win32.MSG{}
 
 	for {
-		res, lastErr, err := win32.GetMessageW.Call(uintptr(unsafe.Pointer(&msg)), this.window, 0, 0)
+		res, _, _ := win32.GetMessageW.Call(uintptr(unsafe.Pointer(&msg)), this.window, 0, 0)
 		if res == 0 {
 			break
 		}
-		if lastErr != 0 {
-			log.Println(err)
-		}
+
 		win32.TranslateMessage.Call(uintptr(unsafe.Pointer(&msg)))
 		win32.DispatchMessageW.Call(uintptr(unsafe.Pointer(&msg)))
 	}
@@ -92,24 +93,20 @@ func (this *WindowsKeyHooker) Start() error {
 }
 
 func (this *WindowsKeyHooker) Stop() error {
-	_, lastErr, err := win32.UnhookWindowsHookEx.Call(this.neighbor)
-	if lastErr != 0 {
+	res, _, err := win32.UnhookWindowsHookEx.Call(this.neighbor)
+	if res == win32.FALSE {
 		return err
 	}
-	_, lastErr, err = win32.SendMessageW.Call(uintptr(this.window), uintptr(win32.WM_DESTROY), uintptr(0), uintptr(0))
-	if lastErr != 0 {
-		return err
-	}
+	win32.SendMessageW.Call(uintptr(this.window), uintptr(win32.WM_DESTROY), uintptr(0), uintptr(0))
+
 	<-this.close
 	close(this.hooked)
 	return nil
 }
 
 func (this *WindowsKeyHooker) hookProc(code int32, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
-	result, lastErr, err := win32.CallNextHookEx.Call(this.neighbor, uintptr(code), wParam, lParam)
-	if lastErr != 0 {
-		log.Println(err)
-	}
+	res, _, _ := win32.CallNextHookEx.Call(this.neighbor, uintptr(code), wParam, lParam)
+
 	switch wParam {
 	case win32.WM_KEYUP:
 		kbdInfo := (*win32.KBDLLHOOKSTRUCT)(unsafe.Pointer(lParam))
@@ -120,14 +117,12 @@ func (this *WindowsKeyHooker) hookProc(code int32, wParam win32.WPARAM, lParam w
 		keyInfo := KeyInfo{Action: KeyDown, VirtualKeyCode: kbdInfo.VkCode, ScanCode: kbdInfo.ScanCode, ModifierKeyFlag: 0} // TODO impl modifirekey
 		this.hooked <- keyInfo
 	}
-	return result
+	return res
 }
 
 func (this *WindowsKeyHooker) windowProc(window win32.HWND, message win32.UINT, wParam win32.WPARAM, lParam win32.LPARAM) win32.LRESULT {
-	res, lastErr, err := win32.DefWindowProcW.Call(window, uintptr(message), wParam, lParam)
-	if lastErr != 0 {
-		log.Printf("WindowsMonitor.windowProc failed: %v\n", err)
-	}
+	res, _, _ := win32.DefWindowProcW.Call(window, uintptr(message), wParam, lParam)
+
 	if message == win32.WM_DESTROY {
 		win32.PostQuitMessage.Call(0)
 	}
